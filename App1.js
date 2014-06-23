@@ -3,6 +3,11 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     items:{ html:'<a href="https://help.rallydev.com/apps/2.0rc3/doc/">App SDK 2.0rc3 Docs</a>'},
     
+    name:undefined,
+    owner:undefined,
+    refinedEstimate:undefined,
+    targetLaunch:undefined,
+    
     launch: function() {
         //setting up the container for control layout.
         this.topContainer = Ext.create('Ext.container.Container',{
@@ -14,12 +19,12 @@ Ext.define('CustomApp', {
         });
         this.add(this.topContainer);
         
-        this._loadIndustryEpicData();
+        this._loadIndustrySolutionsEpicData();
         
     },
     
     
-    _loadIndustryEpicData: function(){
+    _loadIndustrySolutionsEpicData: function(){
             
         // If the store exists, just reload data
         if(this.myStore){
@@ -39,7 +44,7 @@ Ext.define('CustomApp', {
                 },
                 listeners: {
                     load: function(myStore, data, success) {
-                         this._loadEpicComboData(data);
+                         this._populateCombobox(data);
                     },
                     scope:this
                 },
@@ -55,16 +60,16 @@ Ext.define('CustomApp', {
     },
 
         
-    _loadEpicComboData: function(industryEpicLoadData){
+    _populateCombobox: function(industrySolutionsEpicData){
         
         //get all the epic data for populating combobox.
-        var epicComboStore = this._createAllEpicComboStore(industryEpicLoadData);
+        var comboBoxStore = this._getComboBoxStore(industrySolutionsEpicData);
         
         //create the combo dropdown list control.
         this.epicSelector = Ext.create('Ext.form.ComboBox',{
             fieldLabel:'Select Epics: ',
             itemId:'industryEpicCombobox',
-            store: epicComboStore,
+            store: comboBoxStore,
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ID',
@@ -90,76 +95,54 @@ Ext.define('CustomApp', {
         
         //retrive all epic info for selected item.
         var selectedEpic = this.down('#industryEpicCombobox').getValue();
-        console.log('Selected value?', selectedEpic);
-        this._loadSelectedEpicDetailsFromStore(selectedEpic);
+        //console.log('Selected value?', selectedEpic);
+        //this._loadSelectedEpicDetailsFromStore(selectedEpic);
+        
+        // Dipankar's code
+        var records = []; 
+        records = this.myStore.getRecords();
+        var index = this.myStore.find('FormattedID', selectedEpic);
+        this.name = records[index].get('Name');
+        this.owner = records[index].get('Owner');
+        this.refinedEstimate = records[index].get('RefinedEstimate');
+        this.targetlaunch = records[index].get('c_TargetLaunch');
+
+        console.log(this.name);
+        
+        
+/*        Ext.Array.each(records, function(thisRecord) {
+            // Returns the 
+            var name = thisRecord.get('FormattedID');
+            if(name === selectedEpic){
+                this.name = thisRecord.get('Name');
+                this.owner = thisRecord.get('Owner');
+                this.refinedEstimate = thisRecord.get('RefinedEstimate');
+                this.targetlaunch = thisRecord.get('c_TargetLaunch');
+                console.log(selectedEpic + ":" + thisRecord.get('Name'));
+                console.log(selectedEpic + ":" + thisRecord.get('Owner'));
+                console.log(selectedEpic + ":" + thisRecord.get('RefinedEstimate'));
+                console.log(selectedEpic + ":" + thisRecord.get('c_TargetLaunch'));
+                return false;
+            }
+            
+            
+        }, this._onEpicComboSelect);
+*/        
+        
+        this._loadEpicDetailsPanel();
     },
 
 
-    _loadSelectedEpicDetailsFromStore: function(selectedEpicId){
-        
-        //set the filter criteria for epic details.
-        var thisFilter = {
-                property: 'FormattedID',
-                value: selectedEpicId
-            };
-        
-        //if the store already existis just load it.
-         if(this.myEpicStore){
-            console.log('My Epic store exists.');
-            this.myEpicStore.setFilter(thisFilter);
-            this.myEpicStore.load();
-        }
-        // else create the store
-        else{
-                this.myEpicStore = Ext.create('Rally.data.wsapi.Store', {
-                model: 'PortfolioItem/Epic',
-                fetch: ['Name', 'State', 'FormattedID', 'Owner', 'Tags', 'RefinedEstimate', 'c_TargetLaunch'],
-                autoLoad: true,
-                context: {
-                    workspace: '/workspace/1089940415',
-                    project: '/project/11656855707',
-                    projectScopeUp: false,
-                    projectScopeDown: true
-                },
-                listeners: {
-                    load: function(myEpicStore, epicData, success) {
-                         //load the epic deatils pane with the selected epic data.
-                         this._loadEpicDetailsPanel(epicData);
-                    },
-                scope:this
-                },
-                sorters: [
-                            {
-                                property: 'FormattedID',
-                                direction: 'ASC'
-                            }
-                        ],
-                filters: [ 
-                            thisFilter 
-                        ]
-            });
-        }
-        
-    },
 
 
-    _loadEpicDetailsPanel: function(selectedEpicData){
-        //prepare display data for epic details panel.
-        console.log('selected epic data?', selectedEpicData);
-        var epicName = selectedEpicData[0].get('Name');
-        var ownerName = selectedEpicData[0].get('Owner') !== null ? 
-                        (selectedEpicData[0].get('Owner')['_refObjectName'] !== null? 
-                            selectedEpicData[0].get('Owner')['_refObjectName'] : 'No Owner') 
-                        : 'No Owner';
-        var refinedEstimate = selectedEpicData[0].get('RefinedEstimate');
-        var targetLaunch = selectedEpicData[0].get('c_TargetLaunch') !== null?selectedEpicData[0].get('c_TargetLaunch').toString() : 'No Target Specified';
-        
+    _loadEpicDetailsPanel: function(){
+
         //if the epic panel already exists update the item values.
         if(this.epicDetailPanel)
         {
             console.log('update existing panel.');
-            this.epicDetailPanel.getForm().findField('name').setValue(epicName);
-            this.epicDetailPanel.getForm().findField('owner').setValue(ownerName);
+            this.epicDetailPanel.getForm().findField('name').setValue(name);
+            this.epicDetailPanel.getForm().findField('owner').setValue(owner);
             this.epicDetailPanel.getForm().findField('refined_estimate').setValue(refinedEstimate);
             this.epicDetailPanel.getForm().findField('target_launch').setValue(targetLaunch);
         }
@@ -182,25 +165,25 @@ Ext.define('CustomApp', {
                     xtype: 'displayfield',
                     fieldLabel: 'Name',
                     name: 'name',
-                    value: epicName
+                    value: this.name
                 }, 
                 {
                     xtype: 'displayfield',
                     fieldLabel: 'Owner',
                     name: 'owner',
-                    value: ownerName
+                    value: this.owner
                 }, 
                 {
                     xtype: 'displayfield',
                     fieldLabel: 'Refined Estimate',
                     name: 'refined_estimate',
-                    value: refinedEstimate
+                    value: this.refinedEstimate
                 }, 
                 {
                     xtype: 'displayfield',
                     fieldLabel: 'Target Launch',
                     name: 'target_launch',
-                    value: targetLaunch
+                    value: this.targetLaunch
                 }]
             });
             
@@ -210,7 +193,7 @@ Ext.define('CustomApp', {
     },
 
 
-    _createAllEpicComboStore: function(industryEpicLoadData){
+    _getComboBoxStore: function(industrySolutionsEpicLoadData){
         //define the custom model for combo box data.
         Ext.define('Epic', {
                     extend: 'Ext.data.Model',
@@ -223,7 +206,7 @@ Ext.define('CustomApp', {
         //fetch the epic data for Combo list.
         var epicDataCol = [];
                 
-        Ext.Array.each(industryEpicLoadData,function(thisIndustryEpic){
+        Ext.Array.each(industrySolutionsEpicLoadData,function(thisIndustryEpic){
             var epicName = thisIndustryEpic.get('Name');
             var epicId = thisIndustryEpic.get('FormattedID');
             var epicComboName = epicId + ': ' + epicName;

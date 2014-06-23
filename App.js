@@ -3,8 +3,14 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     items:{ html:'<a href="https://help.rallydev.com/apps/2.0rc3/doc/">App SDK 2.0rc3 Docs</a>'},
     
+    totalAcceptedLeafStoryCount: 5,
+    totalLeafStoryCount: 9,
+    consolidatedPercentDoneByStoryCount: 0,
+
     launch: function() {
         //Write app code here
+
+        console.log(this.totalAcceptedLeafStoryCount + this.totalLeafStoryCount);
         this.topContainer = Ext.create('Ext.container.Container',{
             layout: {
                 type: 'hbox',
@@ -61,6 +67,7 @@ Ext.define('CustomApp', {
 
             Ext.Array.each(selectedTagRecords, function(thisTag) {
                 var thisTagName = thisTag.get('Name');
+                console.log(thisTagName);
                 var thisFilter = {
                     property: 'Tags.Name',
                     operator: 'contains',
@@ -73,12 +80,13 @@ Ext.define('CustomApp', {
             if(this.myStore){
                 this.myStore.setFilter(myTagFilters);
                 this.myStore.load();
+                this._calculateConsolidatedPercentDoneByStoryCount();
             }
             // else create the store
             else{
-                    this.myStore = Ext.create('Rally.data.wsapi.Store', {
+                this.myStore = Ext.create('Rally.data.wsapi.Store', {
                     model: 'PortfolioItem/Epic',
-                    fetch: ['Name', 'State', 'FormattedID', 'Owner', 'Tags'],
+                    fetch: ['Name', 'State', 'FormattedID', 'Owner', 'Tags', 'AcceptedLeafStoryCount', 'LeafStoryCount'],
                     autoLoad: true,
                     context: {
                         workspace: '/workspace/1089940415',
@@ -89,17 +97,41 @@ Ext.define('CustomApp', {
                     listeners: {
                         load: function(mystore, data, success) {
                             if (!this.myGrid) {
+                                this._calculateConsolidatedPercentDoneByStoryCount();
                                 this._createGrid(this.myStore, data, success);
                             }
                         },
                         scope:this
                     },
-                    filters: Rally.data.wsapi.Filter.or(myTagFilters)
+                    filters: myTagFilters
                 });
             }
-            
+
         }
 
+    },
+    
+    _calculateConsolidatedPercentDoneByStoryCount:function(){
+        // Calculate the consolidated % done by story count
+        var records = []; 
+        records = this.myStore.getRecords();
+        Ext.Array.each(records, function(thisRecord) {
+            // Returns the 
+            var name = thisRecord.get('Name');
+            this.totalAcceptedLeafStoryCount = this.totalAcceptedLeafStoryCount + parseInt(thisRecord.get('AcceptedLeafStoryCount'));
+            this.totalLeafStoryCount = this.totalLeafStoryCount + parseInt(thisRecord.get('LeafStoryCount'));
+            //var percentDoneByStoryCount = thisRecord.get('PercentDoneByStoryCount');
+            //console.log('name :',  name);
+            //console.log('this.totalLeafStoryCount :',  this.totalLeafStoryCount);
+            //console.log('this.totalAcceptedLeafStoryCount',  this.totalAcceptedLeafStoryCount);
+            //console.log('percentDoneByStoryCount :',  percentDoneByStoryCount);
+            // Returning false would break away from the loop, so you could view only the information of the first record
+            //return false;
+        }, this);
+        this.consolidatedPercentDoneByStoryCount = this.totalAcceptedLeafStoryCount/this.totalLeafStoryCount;
+        console.log('consolidatedPercentDoneByStoryCount : ', this.consolidatedPercentDoneByStoryCount);
+
     }
+    
     
 });
